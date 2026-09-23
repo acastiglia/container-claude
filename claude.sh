@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE="${CLAUDE_IMAGE:-claude-code}"
 CONTAINER_LABEL="app=claude-code"
 HOME_VOLUME="${CLAUDE_HOME_VOLUME:-claude-home}"
-MEMORY_FILE="${CLAUDE_MEMORY_FILE:-$SCRIPT_DIR/claude/CLAUDE.md}"
+MEMORY_FILE="${CLAUDE_MEMORY_FILE:-$HOME/.claude/CLAUDE.md}"
 WORKSPACE="$(cd "${CLAUDE_WORKSPACE:-$PWD}" && pwd)"
 WORKSPACE_LABEL="claude-code.workspace=$WORKSPACE"
 SHELL_MODE=false
@@ -13,19 +13,22 @@ REBUILD=false
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [--shell] [--rebuild]
+Usage: $(basename "$0") [--shell] [--rebuild] [--memory-file FILE]
 
 Attaches to the running Claude Code container for the current directory,
 offers to resume the most recently stopped one, or starts a new one. The
 current directory is mounted at /src.
 
 Options:
-  -s, --shell    Open a bash shell in the container instead of Claude Code.
-                 Claude Code keeps running in the background.
-  -r, --rebuild  Offer to rebuild the image with the latest Claude Code release,
-                 tagged as both $IMAGE:<version> and $IMAGE:latest, then continue.
-                 Existing containers keep the image they were created from.
-  -h, --help     Show this help.
+  -s, --shell             Open a bash shell in the container instead of Claude Code.
+                          Claude Code keeps running in the background.
+  -r, --rebuild           Offer to rebuild the image with the latest Claude Code release,
+                          tagged as both $IMAGE:<version> and $IMAGE:latest, then continue.
+                          Existing containers keep the image they were created from.
+  -m, --memory-file FILE  Mount FILE read-only as the global CLAUDE.md in new containers.
+                          Defaults to ~/.claude/CLAUDE.md. Existing containers keep
+                          the memory file they were created with.
+  -h, --help              Show this help.
 EOF
 }
 
@@ -33,6 +36,14 @@ while (($#)); do
   case "$1" in
     -s | --shell) SHELL_MODE=true ;;
     -r | --rebuild) REBUILD=true ;;
+    -m | --memory-file)
+      if (($# < 2)); then
+        usage >&2
+        exit 1
+      fi
+      MEMORY_FILE="$2"
+      shift
+      ;;
     -h | --help) usage; exit 0 ;;
     *) usage >&2; exit 1 ;;
   esac
@@ -103,6 +114,8 @@ start_new_container() {
     echo "Memory file not found: $MEMORY_FILE" >&2
     exit 1
   fi
+  local absolute_memory_file
+  absolute_memory_file="$(cd "$(dirname "$MEMORY_FILE")" && pwd)/$(basename "$MEMORY_FILE")"
   ensure_image_exists
   echo "Starting a new Claude Code container for $WORKSPACE..."
   local run_options=(
@@ -110,7 +123,7 @@ start_new_container() {
     --label "$CONTAINER_LABEL"
     --label "$WORKSPACE_LABEL"
     --volume "$HOME_VOLUME:/root/.claude"
-    --volume "$MEMORY_FILE:/root/.claude/CLAUDE.md:ro"
+    --volume "$absolute_memory_file:/root/.claude/CLAUDE.md:ro"
     --volume "$WORKSPACE:/src"
   )
   if $SHELL_MODE; then

@@ -6,7 +6,7 @@ Runs [Claude Code](https://www.npmjs.com/package/@anthropic-ai/claude-code) insi
 
 Each container is labelled with its workspace path, which is how `claude.sh` finds the right container for the current directory.
 
-Login credentials, settings, and memory live in `/root/.claude` on a shared Docker volume, so they survive across containers and image rebuilds. `claude/CLAUDE.md` is mounted read-only as Claude Code's global `CLAUDE.md`; edit it to change the instructions applied to every workspace.
+Login credentials, settings, and memory live in `/root/.claude` on a shared Docker volume, so they survive across containers and image rebuilds. Your own `~/.claude/CLAUDE.md` is mounted read-only as Claude Code's global `CLAUDE.md`, so the instructions you use on the host apply in every container. Use `--memory-file` to mount a different file.
 
 ## Usage
 
@@ -17,7 +17,7 @@ cd ~/projects/my-app
 /path/to/claude.sh
 ```
 
-To call it as `claude` from anywhere, add an alias rather than a symlink, since the script locates the `Dockerfile` and `claude/CLAUDE.md` relative to its own path:
+To call it as `claude` from anywhere, add an alias rather than a symlink, since the script locates the `Dockerfile` relative to its own path:
 
 ```bash
 alias claude='/path/to/claude.sh'
@@ -31,6 +31,7 @@ On first run, the script offers to build the `claude-code` image with the latest
 |-------------------|-------------------------------------------------------------------------------------------------------------------------------------|
 | `-s`, `--shell`   | Open a bash shell in the container instead of Claude Code. Claude Code keeps running in the background.                             |
 | `-r`, `--rebuild` | Rebuild the image with the latest Claude Code release, tagged as both `claude-code:<version>` and `claude-code:latest`. Existing containers keep the image they were created from. |
+| `-m`, `--memory-file FILE` | Mount `FILE` read-only as the global `CLAUDE.md` in new containers instead of `~/.claude/CLAUDE.md`. Existing containers keep the memory file they were created with. |
 | `-h`, `--help`    | Show help.                                                                                                                          |
 
 ### Detaching
@@ -45,5 +46,5 @@ Exiting Claude Code drops you into a bash shell in the container; exiting that s
 |----------------------|----------------------|--------------------------------------------------------------------|
 | `CLAUDE_IMAGE`       | `claude-code`        | Name of the Docker image to build and run.                         |
 | `CLAUDE_HOME_VOLUME` | `claude-home`        | Docker volume mounted at `/root/.claude`.                          |
-| `CLAUDE_MEMORY_FILE` | `claude/CLAUDE.md`   | File mounted read-only as the global `/root/.claude/CLAUDE.md`.    |
+| `CLAUDE_MEMORY_FILE` | `~/.claude/CLAUDE.md` | File mounted read-only as the global `/root/.claude/CLAUDE.md`. Overridden by `--memory-file`. |
 | `CLAUDE_WORKSPACE`   | Current directory    | Directory mounted at `/src` and used to identify the container.    |
