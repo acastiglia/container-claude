@@ -126,6 +126,10 @@ start_new_container() {
     --volume "$absolute_memory_file:/root/.claude/CLAUDE.md:ro"
     --volume "$WORKSPACE:/src"
   )
+  if [[ -n "${CLAUDE_GH_TOKEN:-}" ]]; then
+    export GH_TOKEN="$CLAUDE_GH_TOKEN"
+    run_options+=(--env GH_TOKEN)
+  fi
   if $SHELL_MODE; then
     open_shell_in "$(docker run --detach "${run_options[@]}" "$IMAGE")"
   fi
