@@ -48,3 +48,46 @@ Exiting Claude Code drops you into a bash shell in the container; exiting that s
 | `CLAUDE_HOME_VOLUME` | `claude-home`        | Docker volume mounted at `/root/.claude`.                          |
 | `CLAUDE_MEMORY_FILE` | `~/.claude/CLAUDE.md` | File mounted read-only as the global `/root/.claude/CLAUDE.md`. Overridden by `--memory-file`. |
 | `CLAUDE_WORKSPACE`   | Current directory    | Directory mounted at `/src` and used to identify the container.    |
+| `CLAUDE_GH_TOKEN`    | Unset                | GitHub token passed to new containers as `GH_TOKEN`. See [GitHub access](#github-access). |
+
+## GitHub access
+
+Your SSH keys are not available in the container. Instead, git and `gh` in the container authenticate to GitHub with a fine-grained personal access token that you provide.
+
+### Creating the token
+
+1. Open [New fine-grained personal access token](https://github.com/settings/personal-access-tokens/new) on GitHub.
+2. Set **Resource owner** to the account or organization that owns the repositories. A token covers one owner, so repositories across several organizations need separate tokens. Some organizations require an admin to approve the token.
+3. Under **Repository access**, choose **Only select repositories** and pick the repositories Claude Code should reach. Public repositories can be pulled without being selected.
+4. Under **Repository permissions**, grant:
+
+   | Permission    | Access                                               | Needed for                              |
+   |---------------|------------------------------------------------------|-----------------------------------------|
+   | Metadata      | Read-only (selected automatically)                   | Everything                              |
+   | Contents      | Read-only to pull and fetch, Read and write to push  | `git clone`, `fetch`, `pull`, `push`    |
+   | Pull requests | Read and write (optional)                            | `gh pr create`, `comment`, `merge`      |
+   | Issues        | Read-only or Read and write (optional)               | `gh issue` commands                     |
+   | Actions       | Read-only (optional)                                 | `gh run list`, `gh run view`            |
+   | Commit statuses | Read-only (optional)                               | `gh pr checks`                          |
+
+   Leave everything else, including all account permissions, at **No access**. In particular, leave **Workflows** off so that GitHub rejects pushes that change `.github/workflows/`, and leave **Administration** and **Secrets** off so the container cannot change repository settings or read secrets.
+
+The selected permissions apply to every selected repository. Write access cannot be limited to particular branches, so protect important branches with a [ruleset](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets) that blocks force-pushes and deletion.
+
+### Providing the token
+
+Export the token as `CLAUDE_GH_TOKEN` on the host, for example in your shell profile:
+
+```bash
+export CLAUDE_GH_TOKEN=github_pat_...
+```
+
+`claude.sh` passes it to new containers as `GH_TOKEN`, without putting it on the `docker run` command line. Containers that already exist keep the token they were created with, or have none if they were created without it, so start a new container after setting or rotating the token. Permission changes made to an existing token on GitHub apply immediately.
+
+The token is stored in the container's configuration and is visible to anyone who can run `docker inspect` on the host.
+
+### How it works
+
+Git in the container uses `gh` as its credential helper for `https://github.com`, and `git@github.com:` and `ssh://git@github.com/` remotes are rewritten to HTTPS, so clones made on the host work as-is. Remotes on other hosts do not authenticate.
+
+`container-instructions.md` is baked into the image as Claude Code's managed `CLAUDE.md` (`/etc/claude-code/CLAUDE.md`). It tells Claude Code how GitHub access works in the container and to stop rather than work around permission errors. It loads alongside your global `CLAUDE.md`, and changes take effect after `--rebuild`.
