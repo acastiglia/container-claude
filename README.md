@@ -32,6 +32,7 @@ On first run, the script offers to build the `claude-code` image with the latest
 | `-s`, `--shell`   | Open a bash shell in the container instead of Claude Code. Claude Code keeps running in the background.                             |
 | `-r`, `--rebuild` | Rebuild the image with the latest Claude Code release, tagged as both `claude-code:<version>` and `claude-code:latest`. Existing containers keep the image they were created from. |
 | `-m`, `--memory-file FILE` | Mount `FILE` read-only as the global `CLAUDE.md` in new containers instead of `~/.claude/CLAUDE.md`. Existing containers keep the memory file they were created with. |
+| `-a`, `--agents-dir DIR` | Mount `DIR` read-only as the global agents directory (`/root/.claude/agents`) in new containers instead of `~/.claude/agents`. Only mounted if the directory exists, unless given explicitly, in which case a missing directory is an error. Existing containers keep the agents directory they were created with. |
 | `-h`, `--help`    | Show help.                                                                                                                          |
 
 ### Detaching
@@ -47,6 +48,7 @@ Exiting Claude Code drops you into a bash shell in the container; exiting that s
 | `CLAUDE_IMAGE`       | `claude-code`        | Name of the Docker image to build and run.                         |
 | `CLAUDE_HOME_VOLUME` | `claude-home`        | Docker volume mounted at `/root/.claude`.                          |
 | `CLAUDE_MEMORY_FILE` | `~/.claude/CLAUDE.md` | File mounted read-only as the global `/root/.claude/CLAUDE.md`. Overridden by `--memory-file`. |
+| `CLAUDE_AGENTS_DIR`  | `~/.claude/agents`    | Directory mounted read-only as the global `/root/.claude/agents`, if it exists. Overridden by `--agents-dir`. |
 | `CLAUDE_WORKSPACE`   | Current directory    | Directory mounted at `/src` and used to identify the container.    |
 | `CLAUDE_GH_TOKEN`    | Unset                | GitHub token passed to new containers as `GH_TOKEN`. See [GitHub access](#github-access). |
 

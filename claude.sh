@@ -6,6 +6,9 @@ IMAGE="${CLAUDE_IMAGE:-claude-code}"
 CONTAINER_LABEL="app=claude-code"
 HOME_VOLUME="${CLAUDE_HOME_VOLUME:-claude-home}"
 MEMORY_FILE="${CLAUDE_MEMORY_FILE:-$HOME/.claude/CLAUDE.md}"
+AGENTS_DIR="${CLAUDE_AGENTS_DIR:-$HOME/.claude/agents}"
+AGENTS_DIR_EXPLICIT=false
+[[ -n "${CLAUDE_AGENTS_DIR:-}" ]] && AGENTS_DIR_EXPLICIT=true
 WORKSPACE="$(cd "${CLAUDE_WORKSPACE:-$PWD}" && pwd)"
 WORKSPACE_LABEL="claude-code.workspace=$WORKSPACE"
 SHELL_MODE=false
@@ -13,7 +16,7 @@ REBUILD=false
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [--shell] [--rebuild] [--memory-file FILE]
+Usage: $(basename "$0") [--shell] [--rebuild] [--memory-file FILE] [--agents-dir DIR]
 
 Attaches to the running Claude Code container for the current directory,
 offers to resume the most recently stopped one, or starts a new one. The
@@ -28,6 +31,10 @@ Options:
   -m, --memory-file FILE  Mount FILE read-only as the global CLAUDE.md in new containers.
                           Defaults to ~/.claude/CLAUDE.md. Existing containers keep
                           the memory file they were created with.
+  -a, --agents-dir DIR    Mount DIR read-only as the global agents directory
+                          (/root/.claude/agents) in new containers. Defaults to
+                          ~/.claude/agents, mounted only if it exists. Existing
+                          containers keep the agents directory they were created with.
   -h, --help              Show this help.
 EOF
 }
@@ -42,6 +49,15 @@ while (($#)); do
         exit 1
       fi
       MEMORY_FILE="$2"
+      shift
+      ;;
+    -a | --agents-dir)
+      if (($# < 2)); then
+        usage >&2
+        exit 1
+      fi
+      AGENTS_DIR="$2"
+      AGENTS_DIR_EXPLICIT=true
       shift
       ;;
     -h | --help) usage; exit 0 ;;
@@ -126,6 +142,14 @@ start_new_container() {
     --volume "$absolute_memory_file:/root/.claude/CLAUDE.md:ro"
     --volume "$WORKSPACE:/src"
   )
+  if [[ -d "$AGENTS_DIR" ]]; then
+    local absolute_agents_dir
+    absolute_agents_dir="$(cd "$AGENTS_DIR" && pwd)"
+    run_options+=(--volume "$absolute_agents_dir:/root/.claude/agents:ro")
+  elif $AGENTS_DIR_EXPLICIT; then
+    echo "Agents directory not found: $AGENTS_DIR" >&2
+    exit 1
+  fi
   if [[ -n "${CLAUDE_GH_TOKEN:-}" ]]; then
     export GH_TOKEN="$CLAUDE_GH_TOKEN"
     run_options+=(--env GH_TOKEN)
