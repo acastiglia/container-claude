@@ -1,5 +1,4 @@
 FROM node:22-alpine
-LABEL app=claude-code
 WORKDIR /src
 RUN apk add --no-cache bash
 RUN apk add --no-cache git
@@ -11,4 +10,5 @@ ENV SHELL=/bin/bash
 ARG CLAUDE_CODE_VERSION=latest
 RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
 COPY container-instructions.md /etc/claude-code/CLAUDE.md
-CMD ["bash", "-c", "claude; exec bash"]
+COPY gh-token.sh /etc/bash/gh-token.sh
+CMD ["bash", "-c", ". /etc/bash/gh-token.sh; claude; exec bash"]
